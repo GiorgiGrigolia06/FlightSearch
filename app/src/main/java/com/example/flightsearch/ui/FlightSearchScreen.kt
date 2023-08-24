@@ -3,9 +3,13 @@ package com.example.flightsearch.ui
 import android.annotation.SuppressLint
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
@@ -21,59 +25,77 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.flightsearch.R
-import com.example.flightsearch.data.Airport
 import com.example.flightsearch.data.IataAndName
 import com.example.flightsearch.ui.theme.FlightSearchTheme
 
 @Composable
-fun FlightSearchApp() {
+fun FlightSearchApp(
+    modifier: Modifier = Modifier
+) {
     val viewModel: FlightSearchViewModel = viewModel(factory = AppViewModelProvider.Factory)
     val airportList by viewModel.retrieveAutocompleteSuggestions().collectAsState(emptyList())
 
-    SearchBar(
-        placeholder = R.string.search_bar_placeholder,
-        value = viewModel.userInput,
-        onValueChange = { viewModel.updateUserInput(it) }
-    )
+    Box(
+        contentAlignment = Alignment.TopCenter,
+        modifier = modifier.padding(dimensionResource(R.dimen.main_box_padding))
+    ){
+        Column {
+            SearchBar(
+                placeholder = R.string.search_bar_placeholder,
+                value = viewModel.userInput,
+                onValueChange = { viewModel.updateUserInput(it) },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-    if(viewModel.userInput != "") {
-        AirportList(airportList = airportList)
-    }
-}
+            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.main_column_spacer)))
 
-
-@Composable
-fun AirportList(
-    airportList: List<IataAndName>,
-    modifier: Modifier = Modifier
-) {
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(vertical = 8.dp)
-    ) {
-        items(
-            items = airportList,
-        ) {
-            Row {
-                Text(
-                    text = it.iataCode
-                )
-
-                Text(
-                    text = it.name
+            if (viewModel.userInput != "") {
+                AutocompleteSuggestions(
+                    airportList = airportList
                 )
             }
         }
     }
 }
+
+@Composable
+fun AutocompleteSuggestions(
+    airportList: List<IataAndName>,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier
+    ) {
+        items(
+            items = airportList,
+        ) {
+            Row(
+                modifier = Modifier.padding(vertical = dimensionResource(R.dimen.lazy_column_row_vertical_padding))
+            ) {
+                Text(
+                    text = it.iataCode,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.widthIn(min = dimensionResource(R.dimen.iata_code_minimum_width))
+                )
+
+                Text(
+                    text = it.name,
+                    fontWeight = FontWeight.Light,
+                )
+            }
+        }
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,40 +105,35 @@ fun SearchBar(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.fillMaxSize()
-    ){
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            placeholder = { Text(stringResource(placeholder)) },
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
-            leadingIcon = {
-                Icon(
-                    painterResource(R.drawable.baseline_search_24),
-                    contentDescription = null,
-                )
-            },
-            trailingIcon =
-            {
-                Icon(
-                    painterResource(R.drawable.baseline_keyboard_voice_24),
-                    contentDescription = null
-                )
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Go
-            ),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
-                unfocusedBorderColor = Color.Transparent,
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            ),
-            modifier = modifier
-        )
-    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = { Text(stringResource(placeholder)) },
+        singleLine = true,
+        shape = MaterialTheme.shapes.medium,
+        leadingIcon =
+        {
+            Icon(
+                painterResource(R.drawable.baseline_search_24),
+                contentDescription = null,)
+        },
+        trailingIcon =
+        {
+            Icon(
+                painterResource(R.drawable.baseline_keyboard_voice_24),
+                contentDescription = null
+            )
+        },
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Go
+        ),
+        colors = TextFieldDefaults.outlinedTextFieldColors(
+            unfocusedBorderColor = Color.Transparent,
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        modifier = modifier
+    )
 }
 
 @SuppressLint("ResourceType")

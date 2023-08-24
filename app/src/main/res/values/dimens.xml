@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="main_box_padding">20dp</dimen>
+    <dimen name="main_column_spacer">30dp</dimen>
+    <dimen name="lazy_column_row_vertical_padding">5dp</dimen>
+    <dimen name="iata_code_minimum_width">50dp</dimen>
+</resources>
