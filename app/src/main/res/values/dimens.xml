@@ -4,4 +4,5 @@
     <dimen name="main_column_spacer">30dp</dimen>
     <dimen name="lazy_column_row_vertical_padding">5dp</dimen>
     <dimen name="iata_code_minimum_width">50dp</dimen>
+    <dimen name="card_default_elevation">5dp</dimen>
 </resources>

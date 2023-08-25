@@ -5,4 +5,7 @@ import kotlinx.coroutines.flow.Flow
 class OfflineFlightSearchRepository(private val airportDao: AirportDao): FlightSearchRepository {
     override fun getAutocompleteSuggestions(input: String): Flow<List<IataAndName>> =
         airportDao.retrieveAutocompleteSuggestions(input)
+
+    override fun getPossibleFlights(name: String, iataCode: String): Flow<List<IataAndName>> =
+        airportDao.retrievePossibleFlights(name, iataCode)
 }

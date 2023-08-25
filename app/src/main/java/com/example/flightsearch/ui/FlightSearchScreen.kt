@@ -2,6 +2,11 @@ package com.example.flightsearch.ui
 
 import android.annotation.SuppressLint
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +18,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,13 +43,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.flightsearch.R
 import com.example.flightsearch.data.IataAndName
 import com.example.flightsearch.ui.theme.FlightSearchTheme
+import kotlinx.coroutines.flow.Flow
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun FlightSearchApp(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: FlightSearchViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
-    val viewModel: FlightSearchViewModel = viewModel(factory = AppViewModelProvider.Factory)
     val airportList by viewModel.retrieveAutocompleteSuggestions().collectAsState(emptyList())
+    val possibleFlightDestinations by viewModel.retrievePossibleFlights(IataAndName(viewModel.selectedAirport.iataCode, viewModel.selectedAirport.name)).collectAsState(emptyList())
 
     Box(
         contentAlignment = Alignment.TopCenter,
@@ -58,9 +68,88 @@ fun FlightSearchApp(
 
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.main_column_spacer)))
 
-            if (viewModel.userInput != "") {
+            AnimatedVisibility(visible = viewModel.userInput.isNotEmpty() && !viewModel.isAirportSelected) {
                 AutocompleteSuggestions(
-                    airportList = airportList
+                    airportList = airportList,
+                    performFlightSearch = { viewModel.retrievePossibleFlights(it) },
+                    updateSelectedAirport = { viewModel.updateSelectedAirport(it) },
+                    modifier = Modifier.animateEnterExit(
+                        enter = fadeIn(),
+                        exit = slideOutVertically(
+                            targetOffsetY = { fullHeight ->  fullHeight }
+                        )
+                    )
+                )
+            }
+
+            AnimatedVisibility(visible = viewModel.isAirportSelected){
+                PossibleFlights(
+                    selectedAirport = viewModel.selectedAirport,
+                    destinationAirports = possibleFlightDestinations
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PossibleFlights(
+    selectedAirport: IataAndName,
+    destinationAirports: List<IataAndName>,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier
+    ) {
+        items(
+            items = destinationAirports,
+        ) {
+            PossibleFlightCard(
+                selectedAirport = selectedAirport,
+                destinationAirport = it
+            )
+        }
+    }
+}
+
+@Composable
+fun PossibleFlightCard(
+    selectedAirport: IataAndName,
+    destinationAirport: IataAndName,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraSmall,
+        elevation = CardDefaults.cardElevation(defaultElevation = dimensionResource(R.dimen.card_default_elevation)),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.background)
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.depart)
+            )
+
+            Row {
+                Text(
+                    text = selectedAirport.iataCode
+                )
+
+                Text(
+                    text = selectedAirport.name
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.arrive)
+            )
+
+            Row {
+                Text(
+                    destinationAirport.iataCode
+                )
+
+                Text(
+                    destinationAirport.name
                 )
             }
         }
@@ -70,6 +159,8 @@ fun FlightSearchApp(
 @Composable
 fun AutocompleteSuggestions(
     airportList: List<IataAndName>,
+    performFlightSearch: (IataAndName) -> Flow<List<IataAndName>>,
+    updateSelectedAirport: (IataAndName) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -79,7 +170,12 @@ fun AutocompleteSuggestions(
             items = airportList,
         ) {
             Row(
-                modifier = Modifier.padding(vertical = dimensionResource(R.dimen.lazy_column_row_vertical_padding))
+                modifier = Modifier
+                    .padding(vertical = dimensionResource(R.dimen.lazy_column_row_vertical_padding))
+                    .clickable {
+                        performFlightSearch(IataAndName(it.iataCode, it.name))
+                        updateSelectedAirport(it)
+                    }
             ) {
                 Text(
                     text = it.iataCode,
