@@ -1,12 +1,13 @@
 package com.example.flightsearch.ui
 
-import android.annotation.SuppressLint
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,21 +31,24 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.flightsearch.R
 import com.example.flightsearch.data.IataAndName
-import com.example.flightsearch.ui.theme.FlightSearchTheme
-import kotlinx.coroutines.flow.Flow
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -52,7 +57,7 @@ fun FlightSearchApp(
     viewModel: FlightSearchViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val airportList by viewModel.retrieveAutocompleteSuggestions().collectAsState(emptyList())
-    val possibleFlightDestinations by viewModel.retrievePossibleFlights(IataAndName(viewModel.selectedAirport.iataCode, viewModel.selectedAirport.name)).collectAsState(emptyList())
+    val possibleFlights by viewModel.retrievePossibleFlights(viewModel.selectedAirport).collectAsState(emptyList())
 
     Box(
         contentAlignment = Alignment.TopCenter,
@@ -68,24 +73,28 @@ fun FlightSearchApp(
 
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.main_column_spacer)))
 
-            AnimatedVisibility(visible = viewModel.userInput.isNotEmpty() && !viewModel.isAirportSelected) {
+            AnimatedVisibility(
+                visible = viewModel.userInput.isNotEmpty() && !viewModel.isAirportSelected
+            ) {
                 AutocompleteSuggestions(
                     airportList = airportList,
-                    performFlightSearch = { viewModel.retrievePossibleFlights(it) },
+                    onItemSelected = { viewModel.retrievePossibleFlights(it) },
                     updateSelectedAirport = { viewModel.updateSelectedAirport(it) },
                     modifier = Modifier.animateEnterExit(
                         enter = fadeIn(),
                         exit = slideOutVertically(
-                            targetOffsetY = { fullHeight ->  fullHeight }
+                            targetOffsetY = { fullHeight -> fullHeight }
                         )
                     )
                 )
             }
 
-            AnimatedVisibility(visible = viewModel.isAirportSelected){
+            AnimatedVisibility(
+                visible = viewModel.userInput.isNotEmpty() && viewModel.isAirportSelected)
+            {
                 PossibleFlights(
                     selectedAirport = viewModel.selectedAirport,
-                    destinationAirports = possibleFlightDestinations
+                    destinationAirports = possibleFlights,
                 )
             }
         }
@@ -98,16 +107,22 @@ fun PossibleFlights(
     destinationAirports: List<IataAndName>,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(
-        modifier = modifier
-    ) {
-        items(
-            items = destinationAirports,
-        ) {
-            PossibleFlightCard(
-                selectedAirport = selectedAirport,
-                destinationAirport = it
-            )
+    Column {
+        Text(
+            text = stringResource(R.string.flights_from, selectedAirport.iataCode),
+            fontWeight = FontWeight.Bold,
+            modifier = modifier.padding(bottom = 10.dp)
+        )
+        LazyColumn {
+            items(
+                items = destinationAirports,
+            ) {
+                PossibleFlightCard(
+                    selectedAirport = selectedAirport,
+                    destinationAirport = it,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
         }
     }
 }
@@ -118,40 +133,76 @@ fun PossibleFlightCard(
     destinationAirport: IataAndName,
     modifier: Modifier = Modifier
 ) {
+    var isStarClicked by remember { mutableStateOf(false) }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraSmall,
         elevation = CardDefaults.cardElevation(defaultElevation = dimensionResource(R.dimen.card_default_elevation)),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.background)
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.background),
     ) {
-        Column {
-            Text(
-                text = stringResource(R.string.depart)
-            )
-
-            Row {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(16.dp)
+            ) {
                 Text(
-                    text = selectedAirport.iataCode
+                    text = stringResource(R.string.depart),
+                    fontWeight = FontWeight.Light,
+                    fontSize = 10.sp
                 )
 
+                Row {
+                    Text(
+                        text = selectedAirport.iataCode,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.widthIn(min = dimensionResource(R.dimen.iata_code_minimum_width)),
+                    )
+
+                    Text(
+                        text = selectedAirport.name
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 Text(
-                    text = selectedAirport.name
+                    text = stringResource(R.string.arrive),
+                    fontWeight = FontWeight.Light,
+                    fontSize = 10.sp
                 )
+
+                Row {
+                    Text(
+                        destinationAirport.iataCode,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.widthIn(min = dimensionResource(R.dimen.iata_code_minimum_width))
+                    )
+
+                    Text(
+                        destinationAirport.name
+                    )
+                }
             }
 
-            Text(
-                text = stringResource(R.string.arrive)
+            Image(
+                painter = painterResource(R.drawable.baseline_star_24),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(50.dp)
+                    .padding(end = 16.dp)
+                    .clickable { isStarClicked = !isStarClicked },
+                colorFilter = if (isStarClicked) {
+                    ColorFilter.tint(Color.Green)
+                } else {
+                    ColorFilter.tint(Color.Black)
+                }
             )
-
-            Row {
-                Text(
-                    destinationAirport.iataCode
-                )
-
-                Text(
-                    destinationAirport.name
-                )
-            }
         }
     }
 }
@@ -159,7 +210,7 @@ fun PossibleFlightCard(
 @Composable
 fun AutocompleteSuggestions(
     airportList: List<IataAndName>,
-    performFlightSearch: (IataAndName) -> Flow<List<IataAndName>>,
+    onItemSelected: (IataAndName) -> Unit,
     updateSelectedAirport: (IataAndName) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -173,7 +224,7 @@ fun AutocompleteSuggestions(
                 modifier = Modifier
                     .padding(vertical = dimensionResource(R.dimen.lazy_column_row_vertical_padding))
                     .clickable {
-                        performFlightSearch(IataAndName(it.iataCode, it.name))
+                        onItemSelected(it)
                         updateSelectedAirport(it)
                     }
             ) {
@@ -230,30 +281,4 @@ fun SearchBar(
         ),
         modifier = modifier
     )
-}
-
-@SuppressLint("ResourceType")
-@Preview(showBackground = true)
-@Composable
-fun SearchBarPreviewLightTheme() {
-    FlightSearchTheme(darkTheme = false) {
-        SearchBar(
-            placeholder = 1,
-            value = "Giorgi",
-            onValueChange = { },
-        )
-    }
-}
-
-@SuppressLint("ResourceType")
-@Preview(showBackground = true)
-@Composable
-fun SearchBarPreviewDarkTheme() {
-    FlightSearchTheme(darkTheme = true) {
-        SearchBar(
-            placeholder = 1,
-            value = "Giorgi",
-            onValueChange = { },
-        )
-    }
 }
