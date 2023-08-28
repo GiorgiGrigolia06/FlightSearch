@@ -9,7 +9,10 @@ import com.example.flightsearch.FlightSearchApplication
 object AppViewModelProvider {
     val Factory = viewModelFactory {
         initializer {
-            FlightSearchViewModel(flightSearchApplication().container.flightSearchRepository)
+            FlightSearchViewModel(
+                flightSearchApplication().container.flightSearchRepository,
+                flightSearchApplication().userPreferencesRepository
+            )
         }
     }
 }

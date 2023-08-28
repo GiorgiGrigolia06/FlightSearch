@@ -3,8 +3,8 @@ package com.example.flightsearch.ui
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +55,7 @@ fun FlightSearchApp(
     val uiState by viewModel.uiState.collectAsState()
 
     val airportList by viewModel.retrieveAutocompleteSuggestions().collectAsState(emptyList())
-    val destinationAirports by viewModel.retrievePossibleFlights(uiState.selectedAirport).collectAsState(initial = emptyList())
+    val destinationAirports by viewModel.retrievePossibleFlights(uiState.selectedAirport).collectAsState(emptyList())
 
     Box(
         contentAlignment = Alignment.TopCenter,
@@ -66,6 +66,7 @@ fun FlightSearchApp(
                 placeholder = R.string.search_bar_placeholder,
                 value = uiState.userInput,
                 onValueChange = { viewModel.updateUserInput(it) },
+                onClearClick = { viewModel.onClearClick() },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -79,10 +80,8 @@ fun FlightSearchApp(
                     onItemSelected = { viewModel.retrievePossibleFlights(it) },
                     updateSelectedAirport = { viewModel.updateSelectedAirport(it) },
                     modifier = Modifier.animateEnterExit(
-                        enter = fadeIn(),
-                        exit = slideOutVertically(
-                            targetOffsetY = { fullHeight -> fullHeight }
-                        )
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
                     )
                 )
             }
@@ -95,7 +94,11 @@ fun FlightSearchApp(
                     destinationAirports = destinationAirports,
                     isFlightSaved = { viewModel.isFlightSaved(it) },
                     deleteFlight = { viewModel.deleteFlight(it) },
-                    saveFlight = { viewModel.saveFlight(it) }
+                    saveFlight = { viewModel.saveFlight(it) },
+                    modifier = Modifier.animateEnterExit(
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    )
                 )
             }
         }
@@ -214,11 +217,10 @@ fun PossibleFlightCard(
                             deleteFlight(destinationAirport.iataCode + selectedAirport.iataCode)
                         }
                     },
-                colorFilter = if (isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode)) {
+                colorFilter = if (isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode))
                     ColorFilter.tint(MaterialTheme.colorScheme.primary)
-                } else {
-                    ColorFilter.tint(MaterialTheme.colorScheme.outlineVariant)
-                }
+                 else
+                     ColorFilter.tint(MaterialTheme.colorScheme.outlineVariant)
             )
         }
     }
@@ -268,6 +270,7 @@ fun SearchBar(
     @StringRes placeholder: Int,
     value: String,
     onValueChange: (String) -> Unit,
+    onClearClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     OutlinedTextField(
@@ -280,22 +283,26 @@ fun SearchBar(
         {
             Icon(
                 painterResource(R.drawable.baseline_search_24),
-                contentDescription = null,)
+                contentDescription = null,
+                )
         },
-        trailingIcon =
-        {
-            Icon(
-                painterResource(R.drawable.baseline_keyboard_voice_24),
-                contentDescription = null
-            )
-        },
+        trailingIcon = if (value.isNotEmpty()) {
+            {
+                Icon(
+                    painterResource(R.drawable.baseline_clear_24),
+                    contentDescription = null,
+                    modifier = Modifier.clickable { onClearClick() }
+                )
+            }
+        } else null,
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Text,
             imeAction = ImeAction.Go
         ),
         colors = TextFieldDefaults.outlinedTextFieldColors(
             unfocusedBorderColor = Color.Transparent,
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            focusedBorderColor = Color.Transparent,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
         ),
         modifier = modifier
     )
