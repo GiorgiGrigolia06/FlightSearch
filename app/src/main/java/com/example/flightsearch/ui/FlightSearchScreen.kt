@@ -31,9 +31,6 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,7 +41,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.flightsearch.R
@@ -56,8 +52,10 @@ fun FlightSearchApp(
     modifier: Modifier = Modifier,
     viewModel: FlightSearchViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+
     val airportList by viewModel.retrieveAutocompleteSuggestions().collectAsState(emptyList())
-    val possibleFlights by viewModel.retrievePossibleFlights(viewModel.selectedAirport).collectAsState(emptyList())
+    val destinationAirports by viewModel.retrievePossibleFlights(uiState.selectedAirport).collectAsState(initial = emptyList())
 
     Box(
         contentAlignment = Alignment.TopCenter,
@@ -66,7 +64,7 @@ fun FlightSearchApp(
         Column {
             SearchBar(
                 placeholder = R.string.search_bar_placeholder,
-                value = viewModel.userInput,
+                value = uiState.userInput,
                 onValueChange = { viewModel.updateUserInput(it) },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -74,7 +72,7 @@ fun FlightSearchApp(
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.main_column_spacer)))
 
             AnimatedVisibility(
-                visible = viewModel.userInput.isNotEmpty() && !viewModel.isAirportSelected
+                visible = uiState.userInput.isNotEmpty() && !uiState.isAirportSelected
             ) {
                 AutocompleteSuggestions(
                     airportList = airportList,
@@ -90,11 +88,14 @@ fun FlightSearchApp(
             }
 
             AnimatedVisibility(
-                visible = viewModel.userInput.isNotEmpty() && viewModel.isAirportSelected)
+                visible = uiState.userInput.isNotEmpty() && uiState.isAirportSelected)
             {
                 PossibleFlights(
-                    selectedAirport = viewModel.selectedAirport,
-                    destinationAirports = possibleFlights,
+                    selectedAirport = uiState.selectedAirport,
+                    destinationAirports = destinationAirports,
+                    isFlightSaved = { viewModel.isFlightSaved(it) },
+                    deleteFlight = { viewModel.deleteFlight(it) },
+                    saveFlight = { viewModel.saveFlight(it) }
                 )
             }
         }
@@ -105,22 +106,30 @@ fun FlightSearchApp(
 fun PossibleFlights(
     selectedAirport: IataAndName,
     destinationAirports: List<IataAndName>,
+    isFlightSaved: (String) -> Boolean,
+    saveFlight: (String) -> Unit,
+    deleteFlight: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column {
         Text(
             text = stringResource(R.string.flights_from, selectedAirport.iataCode),
             fontWeight = FontWeight.Bold,
-            modifier = modifier.padding(bottom = 10.dp)
+            modifier = modifier.padding(bottom = dimensionResource(R.dimen.possible_flight_text_bottom_padding))
         )
+
         LazyColumn {
             items(
                 items = destinationAirports,
-            ) {
+                key = { it.iataCode }
+            ) { destinationAirport ->
                 PossibleFlightCard(
                     selectedAirport = selectedAirport,
-                    destinationAirport = it,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    destinationAirport = destinationAirport,
+                    saveFlight = saveFlight,
+                    isFlightSaved = isFlightSaved,
+                    deleteFlight = deleteFlight,
+                    modifier = Modifier.padding(vertical = dimensionResource(R.dimen.possible_flight_card_vertical_padding))
                 )
             }
         }
@@ -131,10 +140,11 @@ fun PossibleFlights(
 fun PossibleFlightCard(
     selectedAirport: IataAndName,
     destinationAirport: IataAndName,
+    saveFlight: (String) -> Unit,
+    deleteFlight: (String) -> Unit,
+    isFlightSaved: (String) -> Boolean,
     modifier: Modifier = Modifier
 ) {
-    var isStarClicked by remember { mutableStateOf(false) }
-
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraSmall,
@@ -149,12 +159,12 @@ fun PossibleFlightCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(16.dp)
+                    .padding(dimensionResource(R.dimen.possible_flight_card_column_padding))
             ) {
                 Text(
                     text = stringResource(R.string.depart),
                     fontWeight = FontWeight.Light,
-                    fontSize = 10.sp
+                    fontSize = dimensionResource(R.dimen.depart_font_size).value.sp
                 )
 
                 Row {
@@ -169,17 +179,17 @@ fun PossibleFlightCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(dimensionResource(R.dimen.card_height_spacer)))
 
                 Text(
                     text = stringResource(R.string.arrive),
                     fontWeight = FontWeight.Light,
-                    fontSize = 10.sp
+                    fontSize = dimensionResource(R.dimen.arrive_font_size).value.sp
                 )
 
                 Row {
                     Text(
-                        destinationAirport.iataCode,
+                        text = destinationAirport.iataCode,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.widthIn(min = dimensionResource(R.dimen.iata_code_minimum_width))
                     )
@@ -194,13 +204,20 @@ fun PossibleFlightCard(
                 painter = painterResource(R.drawable.baseline_star_24),
                 contentDescription = null,
                 modifier = Modifier
-                    .size(50.dp)
-                    .padding(end = 16.dp)
-                    .clickable { isStarClicked = !isStarClicked },
-                colorFilter = if (isStarClicked) {
-                    ColorFilter.tint(Color.Green)
+                    .size(dimensionResource(R.dimen.star_icon_size))
+                    .padding(end = dimensionResource(R.dimen.star_icon_end_padding))
+                    .clickable
+                    {
+                        if (!isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode)) {
+                            saveFlight(destinationAirport.iataCode + selectedAirport.iataCode)
+                        } else {
+                            deleteFlight(destinationAirport.iataCode + selectedAirport.iataCode)
+                        }
+                    },
+                colorFilter = if (isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode)) {
+                    ColorFilter.tint(MaterialTheme.colorScheme.primary)
                 } else {
-                    ColorFilter.tint(Color.Black)
+                    ColorFilter.tint(MaterialTheme.colorScheme.outlineVariant)
                 }
             )
         }
@@ -219,6 +236,7 @@ fun AutocompleteSuggestions(
     ) {
         items(
             items = airportList,
+            key = { it.iataCode }
         ) {
             Row(
                 modifier = Modifier

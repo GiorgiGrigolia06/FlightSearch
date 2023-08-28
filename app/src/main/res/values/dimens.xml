@@ -4,6 +4,14 @@
     <dimen name="main_column_spacer">30dp</dimen>
     <dimen name="lazy_column_row_vertical_padding">5dp</dimen>
     <dimen name="iata_code_minimum_width">50dp</dimen>
-    <dimen name="card_default_elevation">5dp</dimen>
+    <dimen name="card_default_elevation">1dp</dimen>
     <dimen name="divider_thickness">1dp</dimen>
+    <dimen name="possible_flight_text_bottom_padding">10dp</dimen>
+    <dimen name="possible_flight_card_vertical_padding">8dp</dimen>
+    <dimen name="possible_flight_card_column_padding">16dp</dimen>
+    <dimen name="depart_font_size">10dp</dimen>
+    <dimen name="card_height_spacer">10dp</dimen>
+    <dimen name="arrive_font_size">10dp</dimen>
+    <dimen name="star_icon_size">50dp</dimen>
+    <dimen name="star_icon_end_padding">16dp</dimen>
 </resources>

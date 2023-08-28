@@ -1,37 +1,77 @@
 package com.example.flightsearch.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.flightsearch.data.FlightSearchRepository
 import com.example.flightsearch.data.IataAndName
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+
+data class FlightSearchUIState(
+    val userInput: String = "",
+    val selectedAirport: IataAndName = IataAndName("", ""),
+    val isAirportSelected: Boolean = false,
+    val flightSavedStates: MutableMap<String, Boolean> = mutableMapOf()
+)
 
 class FlightSearchViewModel(private val flightSearchRepository: FlightSearchRepository): ViewModel() {
-    var userInput: String by mutableStateOf("")
-        private set
 
-    var selectedAirport: IataAndName by mutableStateOf(IataAndName("", ""))
-        private set
+    private val _uiState = MutableStateFlow(
+        FlightSearchUIState()
+    )
 
-    var isAirportSelected: Boolean by mutableStateOf(false)
-        private set
+    val uiState: StateFlow<FlightSearchUIState> = _uiState
 
     fun updateUserInput(input: String) {
-        userInput = input
-        isAirportSelected = false
+        _uiState.update {
+            it.copy(
+                userInput = input,
+                isAirportSelected = false
+            )
+        }
     }
 
     fun updateSelectedAirport(updatedSelectedAirport: IataAndName) {
-        selectedAirport = updatedSelectedAirport
-        isAirportSelected = true
+        _uiState.update {
+            it.copy(
+                selectedAirport = updatedSelectedAirport,
+                isAirportSelected = true
+            )
+        }
     }
 
     fun retrieveAutocompleteSuggestions(): Flow<List<IataAndName>> =
-        flightSearchRepository.getAutocompleteSuggestions(userInput)
+        flightSearchRepository.getAutocompleteSuggestions(_uiState.value.userInput)
 
     fun retrievePossibleFlights(selectedAirport: IataAndName): Flow<List<IataAndName>> =
         flightSearchRepository.getPossibleFlights(selectedAirport.iataCode, selectedAirport.name)
+
+    fun saveFlight(airportCodes: String) {
+        _uiState.update {
+            it.copy(
+                flightSavedStates = _uiState.value.flightSavedStates.toMutableMap().apply {
+                    this[airportCodes] = true
+                }
+            )
+        }
+    }
+
+    fun deleteFlight(airportCodes: String) {
+        if (_uiState.value.flightSavedStates[airportCodes] == true) {
+            _uiState.update {
+                it.copy(
+                    flightSavedStates = _uiState.value.flightSavedStates.toMutableMap().apply {
+                        this[airportCodes] = false
+                    }
+                )
+            }
+        }
+    }
+
+    fun isFlightSaved(airportCodes: String): Boolean {
+        return _uiState.value.flightSavedStates[airportCodes] == true
+    }
 }
+
 
