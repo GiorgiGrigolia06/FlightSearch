@@ -8,6 +8,8 @@ import com.example.flightsearch.data.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -30,33 +32,23 @@ class FlightSearchViewModel(
 
     init {
         viewModelScope.launch {
-            userPreferencesRepository.userInput.collect { savedUserInput ->
-                _uiState.update {
-                    it.copy(
-                        userInput = savedUserInput
-                    )
-                }
-            }
-        }
-    }
-
-    fun onClearClick() {
-        _uiState.update {
-            it.copy(
-                userInput = ""
-            )
-        }
-    }
-
-
-    fun updateUserInput(input: String) {
-        viewModelScope.launch {
             _uiState.update {
                 it.copy(
-                    userInput = input,
-                    isAirportSelected = false
+                    userInput = userPreferencesRepository.userInput.first()
                 )
             }
+        }
+    }
+
+    fun updateUserInput(input: String) {
+        _uiState.update {
+            it.copy(
+                userInput = input,
+                isAirportSelected = false
+            )
+        }
+
+        viewModelScope.launch {
             userPreferencesRepository.saveUserInput(input)
         }
     }
@@ -70,38 +62,50 @@ class FlightSearchViewModel(
         }
     }
 
-    fun retrieveAutocompleteSuggestions(): Flow<List<IataAndName>> =
-        flightSearchRepository.getAutocompleteSuggestions(_uiState.value.userInput)
-
-
-    fun retrievePossibleFlights(selectedAirport: IataAndName): Flow<List<IataAndName>> {
-        return flightSearchRepository.getPossibleFlights(selectedAirport.iataCode, selectedAirport.name)
+    fun retrieveAutocompleteSuggestions(): Flow<List<IataAndName>> {
+        return if (_uiState.value.userInput.isNotBlank())
+            flightSearchRepository.getAutocompleteSuggestions(_uiState.value.userInput.trim())
+        else
+            emptyFlow()
     }
 
-    fun saveFlight(airportCodes: String) {
+    fun retrievePossibleFlights(selectedAirport: IataAndName): Flow<List<IataAndName>> =
+        flightSearchRepository.getPossibleFlights(selectedAirport.iataCode, selectedAirport.name)
+
+    private fun updateFlightSavedState(airportCodes: String, newState: Boolean) {
         _uiState.update {
             it.copy(
                 flightSavedStates = _uiState.value.flightSavedStates.toMutableMap().apply {
-                    this[airportCodes] = true
+                    this[airportCodes] = newState
                 }
             )
         }
     }
 
+    fun saveFlight(airportCodes: String) {
+        updateFlightSavedState(airportCodes, true)
+    }
+
     fun deleteFlight(airportCodes: String) {
         if (_uiState.value.flightSavedStates[airportCodes] == true) {
-            _uiState.update {
-                it.copy(
-                    flightSavedStates = _uiState.value.flightSavedStates.toMutableMap().apply {
-                        this[airportCodes] = false
-                    }
-                )
-            }
+            updateFlightSavedState(airportCodes, false)
         }
     }
 
     fun isFlightSaved(airportCodes: String): Boolean {
         return _uiState.value.flightSavedStates[airportCodes] == true
+    }
+
+    fun onClearClick() {
+        _uiState.update {
+            it.copy(
+                userInput = ""
+            )
+        }
+
+        viewModelScope.launch {
+            userPreferencesRepository.saveUserInput(_uiState.value.userInput)
+        }
     }
 }
 

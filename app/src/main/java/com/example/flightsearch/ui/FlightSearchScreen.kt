@@ -1,12 +1,9 @@
 package com.example.flightsearch.ui
 
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -46,20 +44,24 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.flightsearch.R
 import com.example.flightsearch.data.IataAndName
 
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun FlightSearchApp(
     modifier: Modifier = Modifier,
-    viewModel: FlightSearchViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    viewModel: FlightSearchViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
     val airportList by viewModel.retrieveAutocompleteSuggestions().collectAsState(emptyList())
     val destinationAirports by viewModel.retrievePossibleFlights(uiState.selectedAirport).collectAsState(emptyList())
+    val focusManager = LocalFocusManager.current
 
     Box(
         contentAlignment = Alignment.TopCenter,
-        modifier = modifier.padding(dimensionResource(R.dimen.main_box_padding))
+        modifier = modifier
+            .padding(dimensionResource(R.dimen.main_box_padding))
+            .clickable(
+                interactionSource = MutableInteractionSource(),
+                indication = null
+            ) { focusManager.clearFocus() },
     ){
         Column {
             SearchBar(
@@ -72,33 +74,104 @@ fun FlightSearchApp(
 
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.main_column_spacer)))
 
-            AnimatedVisibility(
-                visible = uiState.userInput.isNotEmpty() && !uiState.isAirportSelected
-            ) {
+            if (uiState.userInput.isNotEmpty() && !uiState.isAirportSelected && uiState.userInput.isNotBlank()) {
                 AutocompleteSuggestions(
                     airportList = airportList,
                     onItemSelected = { viewModel.retrievePossibleFlights(it) },
                     updateSelectedAirport = { viewModel.updateSelectedAirport(it) },
-                    modifier = Modifier.animateEnterExit(
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    )
                 )
             }
 
-            AnimatedVisibility(
-                visible = uiState.userInput.isNotEmpty() && uiState.isAirportSelected)
-            {
+            if (uiState.userInput.isNotEmpty() && uiState.isAirportSelected) {
                 PossibleFlights(
                     selectedAirport = uiState.selectedAirport,
                     destinationAirports = destinationAirports,
                     isFlightSaved = { viewModel.isFlightSaved(it) },
                     deleteFlight = { viewModel.deleteFlight(it) },
                     saveFlight = { viewModel.saveFlight(it) },
-                    modifier = Modifier.animateEnterExit(
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    )
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchBar(
+    @StringRes placeholder: Int,
+    value: String,
+    onValueChange: (String) -> Unit,
+    onClearClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = if (value.isBlank()) {
+            { Text(text = stringResource(placeholder)) }
+        } else null,
+        singleLine = true,
+        shape = MaterialTheme.shapes.medium,
+        leadingIcon =
+        {
+            Icon(
+                painterResource(R.drawable.baseline_search_24),
+                contentDescription = null,
+            )
+        },
+        trailingIcon = if (value.isNotBlank()) {
+            {
+                Icon(
+                    painterResource(R.drawable.baseline_clear_24),
+                    contentDescription = null,
+                    modifier = Modifier.clickable { onClearClick() }
+                )
+            }
+        } else null,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Go
+        ),
+        colors = TextFieldDefaults.outlinedTextFieldColors(
+            unfocusedBorderColor = Color.Transparent,
+            focusedBorderColor = Color.Transparent,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+        modifier = modifier
+    )
+}
+
+@Composable
+fun AutocompleteSuggestions(
+    airportList: List<IataAndName>,
+    onItemSelected: (IataAndName) -> Unit,
+    updateSelectedAirport: (IataAndName) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier
+    ) {
+        items(
+            items = airportList,
+            key = { it.iataCode }
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(vertical = dimensionResource(R.dimen.lazy_column_row_vertical_padding))
+                    .clickable {
+                        onItemSelected(it)
+                        updateSelectedAirport(it)
+                    }
+            ) {
+                Text(
+                    text = it.iataCode,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.widthIn(min = dimensionResource(R.dimen.iata_code_minimum_width))
+                )
+
+                Text(
+                    text = it.name,
+                    fontWeight = FontWeight.Light,
                 )
             }
         }
@@ -209,13 +282,11 @@ fun PossibleFlightCard(
                 modifier = Modifier
                     .size(dimensionResource(R.dimen.star_icon_size))
                     .padding(end = dimensionResource(R.dimen.star_icon_end_padding))
-                    .clickable
-                    {
-                        if (!isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode)) {
+                    .clickable {
+                        if (!isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode))
                             saveFlight(destinationAirport.iataCode + selectedAirport.iataCode)
-                        } else {
+                        else
                             deleteFlight(destinationAirport.iataCode + selectedAirport.iataCode)
-                        }
                     },
                 colorFilter = if (isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode))
                     ColorFilter.tint(MaterialTheme.colorScheme.primary)
@@ -224,86 +295,4 @@ fun PossibleFlightCard(
             )
         }
     }
-}
-
-@Composable
-fun AutocompleteSuggestions(
-    airportList: List<IataAndName>,
-    onItemSelected: (IataAndName) -> Unit,
-    updateSelectedAirport: (IataAndName) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyColumn(
-        modifier = modifier
-    ) {
-        items(
-            items = airportList,
-            key = { it.iataCode }
-        ) {
-            Row(
-                modifier = Modifier
-                    .padding(vertical = dimensionResource(R.dimen.lazy_column_row_vertical_padding))
-                    .clickable {
-                        onItemSelected(it)
-                        updateSelectedAirport(it)
-                    }
-            ) {
-                Text(
-                    text = it.iataCode,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.widthIn(min = dimensionResource(R.dimen.iata_code_minimum_width))
-                )
-
-                Text(
-                    text = it.name,
-                    fontWeight = FontWeight.Light,
-                )
-            }
-        }
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SearchBar(
-    @StringRes placeholder: Int,
-    value: String,
-    onValueChange: (String) -> Unit,
-    onClearClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        placeholder = { Text(stringResource(placeholder)) },
-        singleLine = true,
-        shape = MaterialTheme.shapes.medium,
-        leadingIcon =
-        {
-            Icon(
-                painterResource(R.drawable.baseline_search_24),
-                contentDescription = null,
-                )
-        },
-        trailingIcon = if (value.isNotEmpty()) {
-            {
-                Icon(
-                    painterResource(R.drawable.baseline_clear_24),
-                    contentDescription = null,
-                    modifier = Modifier.clickable { onClearClick() }
-                )
-            }
-        } else null,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Text,
-            imeAction = ImeAction.Go
-        ),
-        colors = TextFieldDefaults.outlinedTextFieldColors(
-            unfocusedBorderColor = Color.Transparent,
-            focusedBorderColor = Color.Transparent,
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ),
-        modifier = modifier
-    )
 }
