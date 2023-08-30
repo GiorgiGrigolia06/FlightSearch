@@ -14,7 +14,6 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
     name = USER_INPUT
 )
 
-
 class FlightSearchApplication: Application() {
     lateinit var container: AppContainer
     lateinit var userPreferencesRepository: UserPreferencesRepository
