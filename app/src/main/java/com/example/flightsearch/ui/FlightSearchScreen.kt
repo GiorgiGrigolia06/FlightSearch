@@ -1,6 +1,10 @@
 package com.example.flightsearch.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -28,6 +32,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,8 +47,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.flightsearch.R
+import com.example.flightsearch.data.Favorite
 import com.example.flightsearch.data.IataAndName
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun FlightSearchApp(
     modifier: Modifier = Modifier,
@@ -53,6 +61,10 @@ fun FlightSearchApp(
     val airportList by viewModel.retrieveAutocompleteSuggestions().collectAsState(emptyList())
     val destinationAirports by viewModel.retrievePossibleFlights(uiState.selectedAirport).collectAsState(emptyList())
     val focusManager = LocalFocusManager.current
+
+    val coroutineScope = rememberCoroutineScope()
+    val favoriteFlights by viewModel.getAllFavorites().collectAsState(emptyList())
+
 
     Box(
         contentAlignment = Alignment.TopCenter,
@@ -74,21 +86,66 @@ fun FlightSearchApp(
 
             Spacer(modifier = Modifier.height(dimensionResource(R.dimen.main_column_spacer)))
 
-            if (uiState.userInput.isNotEmpty() && !uiState.isAirportSelected && uiState.userInput.isNotBlank()) {
+            AnimatedVisibility(uiState.userInput.isNotBlank() && !uiState.isAirportSelected) {
                 AutocompleteSuggestions(
                     airportList = airportList,
                     onItemSelected = { viewModel.retrievePossibleFlights(it) },
                     updateSelectedAirport = { viewModel.updateSelectedAirport(it) },
+                    modifier = Modifier.animateEnterExit(
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    )
                 )
             }
 
-            if (uiState.userInput.isNotEmpty() && uiState.isAirportSelected) {
+            AnimatedVisibility(uiState.userInput.isNotBlank() && uiState.isAirportSelected) {
                 PossibleFlights(
                     selectedAirport = uiState.selectedAirport,
                     destinationAirports = destinationAirports,
                     isFlightSaved = { viewModel.isFlightSaved(it) },
                     deleteFlight = { viewModel.deleteFlight(it) },
                     saveFlight = { viewModel.saveFlight(it) },
+                    modifier = Modifier.animateEnterExit(
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    ),
+                    saveFavorite = {
+                        coroutineScope.launch {
+                            viewModel.insertItem(it)
+                        }
+                    },
+
+                    deleteFavorite = {
+                        coroutineScope.launch {
+                            viewModel.deleteItem(it)
+                        }
+                    }
+                )
+            }
+            
+            SavedFlights(
+                items = favoriteFlights
+            )
+        }
+    }
+}
+
+@Composable
+fun SavedFlights(
+    modifier: Modifier = Modifier,
+    items: List<Favorite>,
+) {
+    LazyColumn(modifier = modifier){
+        items(
+            items = items
+        )  {
+            Column {
+                Text(
+                    text = it.departureCode
+                )
+                
+                Text(
+                    it.destinationCode
                 )
             }
         }
@@ -185,15 +242,18 @@ fun PossibleFlights(
     isFlightSaved: (String) -> Boolean,
     saveFlight: (String) -> Unit,
     deleteFlight: (String) -> Unit,
+    saveFavorite: (Favorite) -> Unit,
+    deleteFavorite: (Favorite) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column {
-        Text(
-            text = stringResource(R.string.flights_from, selectedAirport.iataCode),
-            fontWeight = FontWeight.Bold,
-            modifier = modifier.padding(bottom = dimensionResource(R.dimen.possible_flight_text_bottom_padding))
-        )
-
+        if (destinationAirports.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.flights_from, selectedAirport.iataCode),
+                fontWeight = FontWeight.Bold,
+                modifier = modifier.padding(bottom = dimensionResource(R.dimen.possible_flight_text_bottom_padding))
+            )
+        }
         LazyColumn {
             items(
                 items = destinationAirports,
@@ -205,6 +265,8 @@ fun PossibleFlights(
                     saveFlight = saveFlight,
                     isFlightSaved = isFlightSaved,
                     deleteFlight = deleteFlight,
+                    saveFavorite = saveFavorite,
+                    deleteFavorite = deleteFavorite,
                     modifier = Modifier.padding(vertical = dimensionResource(R.dimen.possible_flight_card_vertical_padding))
                 )
             }
@@ -219,6 +281,8 @@ fun PossibleFlightCard(
     saveFlight: (String) -> Unit,
     deleteFlight: (String) -> Unit,
     isFlightSaved: (String) -> Boolean,
+    saveFavorite: (Favorite) -> Unit,
+    deleteFavorite: (Favorite) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -283,15 +347,28 @@ fun PossibleFlightCard(
                     .size(dimensionResource(R.dimen.star_icon_size))
                     .padding(end = dimensionResource(R.dimen.star_icon_end_padding))
                     .clickable {
-                        if (!isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode))
+                        if (!isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode)) {
                             saveFlight(destinationAirport.iataCode + selectedAirport.iataCode)
-                        else
+                            saveFavorite(
+                                Favorite(
+                                    departureCode = selectedAirport.iataCode,
+                                    destinationCode = destinationAirport.iataCode
+                                )
+                            )
+                        } else {
                             deleteFlight(destinationAirport.iataCode + selectedAirport.iataCode)
+                            deleteFavorite(
+                                Favorite(
+                                    departureCode = selectedAirport.iataCode,
+                                    destinationCode = destinationAirport.iataCode
+                                )
+                            )
+                        }
                     },
                 colorFilter = if (isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode))
                     ColorFilter.tint(MaterialTheme.colorScheme.primary)
-                 else
-                     ColorFilter.tint(MaterialTheme.colorScheme.outlineVariant)
+                else
+                    ColorFilter.tint(MaterialTheme.colorScheme.outlineVariant)
             )
         }
     }

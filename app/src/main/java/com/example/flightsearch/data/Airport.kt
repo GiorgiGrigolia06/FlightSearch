@@ -20,6 +20,9 @@ data class Airport(
 )
 
 data class IataAndName(
-    @ColumnInfo(name = "iata_code") val iataCode: String,
-    @ColumnInfo(name = "name") val name: String
+    @ColumnInfo(name = "iata_code")
+    val iataCode: String,
+
+    @ColumnInfo(name = "name")
+    val name: String
 )

@@ -8,4 +8,13 @@ class OfflineFlightSearchRepository(private val airportDao: AirportDao): FlightS
 
     override fun getPossibleFlights(name: String, iataCode: String): Flow<List<IataAndName>> =
         airportDao.retrievePossibleFlights(name, iataCode)
+
+    override suspend fun insertFavoriteItem(favorite: Favorite) =
+        airportDao.insertFavorite(favorite)
+
+    override suspend fun deleteFavorite(departureCode: String, destinationCode: String) =
+        airportDao.deleteFavorite(departureCode, destinationCode)
+
+    override fun getAllFavorites(): Flow<List<Favorite>> =
+        airportDao.retrieveAllFavorites()
 }

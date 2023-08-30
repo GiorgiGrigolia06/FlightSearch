@@ -2,12 +2,15 @@ package com.example.flightsearch.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.flightsearch.data.Favorite
 import com.example.flightsearch.data.FlightSearchRepository
 import com.example.flightsearch.data.IataAndName
 import com.example.flightsearch.data.UserPreferencesRepository
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -15,10 +18,12 @@ import kotlinx.coroutines.launch
 
 data class FlightSearchUIState(
     val userInput: String = "",
-    val selectedAirport: IataAndName = IataAndName("", ""),
+    val selectedAirport: IataAndName = IataAndName(iataCode = "", name =  ""),
     val isAirportSelected: Boolean = false,
-    val flightSavedStates: MutableMap<String, Boolean> = mutableMapOf()
+    val flightSavedStates: MutableMap<String, Boolean> = mutableMapOf(),
 )
+
+@OptIn(FlowPreview::class)
 class FlightSearchViewModel(
     private val flightSearchRepository: FlightSearchRepository,
     private val userPreferencesRepository: UserPreferencesRepository
@@ -29,6 +34,20 @@ class FlightSearchViewModel(
     )
 
     val uiState: StateFlow<FlightSearchUIState> = _uiState
+
+
+    //////////////////////////////////////
+    suspend fun insertItem(item: Favorite) {
+        flightSearchRepository.insertFavoriteItem(item)
+    }
+
+    suspend fun deleteItem(item: Favorite) {
+        flightSearchRepository.deleteFavorite(item.departureCode, item.destinationCode)
+    }
+
+    fun getAllFavorites(): Flow<List<Favorite>> =
+        flightSearchRepository.getAllFavorites()
+    //////////////////////////////////////
 
     init {
         viewModelScope.launch {
@@ -65,12 +84,14 @@ class FlightSearchViewModel(
     fun retrieveAutocompleteSuggestions(): Flow<List<IataAndName>> {
         return if (_uiState.value.userInput.isNotBlank())
             flightSearchRepository.getAutocompleteSuggestions(_uiState.value.userInput.trim())
+                .debounce(500L)
         else
             emptyFlow()
     }
 
     fun retrievePossibleFlights(selectedAirport: IataAndName): Flow<List<IataAndName>> =
         flightSearchRepository.getPossibleFlights(selectedAirport.iataCode, selectedAirport.name)
+
 
     private fun updateFlightSavedState(airportCodes: String, newState: Boolean) {
         _uiState.update {
