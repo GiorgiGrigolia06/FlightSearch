@@ -80,7 +80,7 @@ class FlightSearchViewModel(
     fun retrievePossibleFlights(selectedAirport: IataAndName): Flow<List<IataAndName>> =
         flightSearchRepository.getPossibleFlights(selectedAirport.iataCode, selectedAirport.name)
 
-    // Marks flight as saved ord deleted by switching boolean value to true or false depending on boolean value
+    // Marks flight as saved or deleted by switching boolean value to true or false depending on boolean value
     private fun updateFlightSavedState(favorite: Favorite, newState: Boolean) {
         _uiState.update {
             it.copy(
