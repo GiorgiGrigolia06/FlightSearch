@@ -20,7 +20,7 @@ data class FlightSearchUIState(
     val userInput: String = "",
     val selectedAirport: IataAndName = IataAndName(iataCode = "", name =  ""),
     val isAirportSelected: Boolean = false,
-    val flightSavedStates: MutableMap<String, Boolean> = mutableMapOf(),
+    val flightSavedStates: MutableMap<Favorite, Boolean> = mutableMapOf(),
 )
 
 @OptIn(FlowPreview::class)
@@ -35,20 +35,6 @@ class FlightSearchViewModel(
 
     val uiState: StateFlow<FlightSearchUIState> = _uiState
 
-
-    //////////////////////////////////////
-    suspend fun insertItem(item: Favorite) {
-        flightSearchRepository.insertFavoriteItem(item)
-    }
-
-    suspend fun deleteItem(item: Favorite) {
-        flightSearchRepository.deleteFavorite(item.departureCode, item.destinationCode)
-    }
-
-    fun getAllFavorites(): Flow<List<Favorite>> =
-        flightSearchRepository.getAllFavorites()
-    //////////////////////////////////////
-
     init {
         viewModelScope.launch {
             _uiState.update {
@@ -59,6 +45,7 @@ class FlightSearchViewModel(
         }
     }
 
+    // Updates user input and saves it in user preference repository
     fun updateUserInput(input: String) {
         _uiState.update {
             it.copy(
@@ -66,12 +53,12 @@ class FlightSearchViewModel(
                 isAirportSelected = false
             )
         }
-
         viewModelScope.launch {
             userPreferencesRepository.saveUserInput(input)
         }
     }
 
+    // Updates selected airport so the function then can return possible flights list based on it
     fun updateSelectedAirport(updatedSelectedAirport: IataAndName) {
         _uiState.update {
             it.copy(
@@ -81,42 +68,58 @@ class FlightSearchViewModel(
         }
     }
 
+    // Retrieves autocomplete suggestions as the user fills the search bar
     fun retrieveAutocompleteSuggestions(): Flow<List<IataAndName>> {
         return if (_uiState.value.userInput.isNotBlank())
-            flightSearchRepository.getAutocompleteSuggestions(_uiState.value.userInput.trim())
-                .debounce(500L)
+            flightSearchRepository.getAutocompleteSuggestions(_uiState.value.userInput.trim()).debounce(500L)
         else
             emptyFlow()
     }
 
+    // Retrieves possible flights list after the airport is selected
     fun retrievePossibleFlights(selectedAirport: IataAndName): Flow<List<IataAndName>> =
         flightSearchRepository.getPossibleFlights(selectedAirport.iataCode, selectedAirport.name)
 
-
-    private fun updateFlightSavedState(airportCodes: String, newState: Boolean) {
+    // Marks flight as saved by switching boolean value to true
+    private fun updateFlightSavedState(favorite: Favorite, newState: Boolean) {
         _uiState.update {
             it.copy(
                 flightSavedStates = _uiState.value.flightSavedStates.toMutableMap().apply {
-                    this[airportCodes] = newState
+                    this[favorite] = newState
                 }
             )
         }
     }
 
-    fun saveFlight(airportCodes: String) {
-        updateFlightSavedState(airportCodes, true)
-    }
+    // Saves item in the local database and marks it as saved
+    fun insertItem(favorite: Favorite) {
+        updateFlightSavedState(favorite, true)
 
-    fun deleteFlight(airportCodes: String) {
-        if (_uiState.value.flightSavedStates[airportCodes] == true) {
-            updateFlightSavedState(airportCodes, false)
+        viewModelScope.launch {
+            flightSearchRepository.insertFavoriteItem(favorite)
         }
     }
 
-    fun isFlightSaved(airportCodes: String): Boolean {
-        return _uiState.value.flightSavedStates[airportCodes] == true
+    // Deletes item from the local database and marks it as deleted
+    fun deleteItem(favorite: Favorite) {
+        if (_uiState.value.flightSavedStates[favorite] == true)
+            updateFlightSavedState(favorite, false)
+
+        viewModelScope.launch {
+            flightSearchRepository.deleteFavorite(favorite.departureCode, favorite.destinationCode)
+        }
     }
 
+    // Checks if flight is saved or not
+    fun isFlightSaved(favorite: Favorite): Boolean {
+        return _uiState.value.flightSavedStates[favorite] == true
+    }
+
+    // Returns a list of favorite (saved) items from the database
+    fun getAllFavorites(): Flow<List<Favorite>> =
+        flightSearchRepository.getAllFavorites()
+
+    // Clears user input from the search bar and saves it to the preference repository
     fun onClearClick() {
         _uiState.update {
             it.copy(
@@ -128,6 +131,13 @@ class FlightSearchViewModel(
             userPreferencesRepository.saveUserInput(_uiState.value.userInput)
         }
     }
+
+    // Checks saved items and if the same item exists in possible flights list, marks it as saved
+    fun syncFavoritesWithFlights(favorites: List<Favorite>, selectedAirport: IataAndName, destinationAirports: List<IataAndName>) {
+        for (favorite in favorites)
+            for (destinationAirport in destinationAirports) {
+                if (favorite.departureCode == selectedAirport.iataCode && favorite.destinationCode == destinationAirport.iataCode)
+                    updateFlightSavedState(Favorite(departureCode = selectedAirport.iataCode, destinationCode = destinationAirport.iataCode), true)
+            }
+    }
 }
-
-

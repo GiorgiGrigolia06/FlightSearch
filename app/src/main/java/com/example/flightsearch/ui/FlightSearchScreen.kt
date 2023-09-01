@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +35,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
@@ -60,11 +58,10 @@ fun FlightSearchApp(
     val uiState by viewModel.uiState.collectAsState()
     val airportList by viewModel.retrieveAutocompleteSuggestions().collectAsState(emptyList())
     val destinationAirports by viewModel.retrievePossibleFlights(uiState.selectedAirport).collectAsState(emptyList())
-    val focusManager = LocalFocusManager.current
-
-    val coroutineScope = rememberCoroutineScope()
     val favoriteFlights by viewModel.getAllFavorites().collectAsState(emptyList())
 
+    val focusManager = LocalFocusManager.current
+    val coroutineScope = rememberCoroutineScope()
 
     Box(
         contentAlignment = Alignment.TopCenter,
@@ -89,12 +86,22 @@ fun FlightSearchApp(
             AnimatedVisibility(uiState.userInput.isNotBlank() && !uiState.isAirportSelected) {
                 AutocompleteSuggestions(
                     airportList = airportList,
-                    onItemSelected = { viewModel.retrievePossibleFlights(it) },
-                    updateSelectedAirport = { viewModel.updateSelectedAirport(it) },
-                    modifier = Modifier.animateEnterExit(
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    )
+                    onItemSelected = {
+                        coroutineScope.launch {
+                            viewModel.retrievePossibleFlights(it).collect { list ->
+                                val flightList: List<IataAndName> = list
+                                viewModel.updateSelectedAirport(it)
+                                viewModel.syncFavoritesWithFlights(favoriteFlights, it, flightList)
+                            }
+                        }
+                    },
+
+                    modifier = Modifier
+                        .animateEnterExit(
+                            enter = expandVertically(),
+                            exit = shrinkVertically()
+                        )
+                        .padding(bottom = dimensionResource(R.dimen.autocomplete_suggestions_bottom_padding))
                 )
             }
 
@@ -102,51 +109,86 @@ fun FlightSearchApp(
                 PossibleFlights(
                     selectedAirport = uiState.selectedAirport,
                     destinationAirports = destinationAirports,
-                    isFlightSaved = { viewModel.isFlightSaved(it) },
-                    deleteFlight = { viewModel.deleteFlight(it) },
-                    saveFlight = { viewModel.saveFlight(it) },
-                    modifier = Modifier.animateEnterExit(
-                        enter = expandVertically(),
-                        exit = shrinkVertically()
-                    ),
                     saveFavorite = {
                         coroutineScope.launch {
                             viewModel.insertItem(it)
                         }
                     },
-
                     deleteFavorite = {
                         coroutineScope.launch {
                             viewModel.deleteItem(it)
                         }
-                    }
+                    },
+                    isFlightSaved = { viewModel.isFlightSaved(it) },
+                    modifier = Modifier.animateEnterExit(
+                        enter = expandVertically(),
+                        exit = shrinkVertically()
+                    )
                 )
             }
-            
-            SavedFlights(
-                items = favoriteFlights
-            )
+
+            SavedFlights(items = favoriteFlights)
         }
     }
 }
 
 @Composable
 fun SavedFlights(
-    modifier: Modifier = Modifier,
     items: List<Favorite>,
+    modifier: Modifier = Modifier
 ) {
-    LazyColumn(modifier = modifier){
-        items(
-            items = items
-        )  {
-            Column {
-                Text(
-                    text = it.departureCode
-                )
-                
-                Text(
-                    it.destinationCode
-                )
+    Column(
+        modifier = modifier
+    ){
+        if (items.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.favorite_routes),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .padding(bottom = dimensionResource(R.dimen.possible_flight_text_bottom_padding))
+            )
+        }
+        LazyColumn {
+            items(
+                items = items.reversed(),
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = dimensionResource(R.dimen.possible_flight_card_vertical_padding)),
+                    shape = MaterialTheme.shapes.small,
+                    elevation = CardDefaults.cardElevation(defaultElevation = dimensionResource(R.dimen.card_default_elevation)),
+                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.background),
+                ){
+                    Column(
+                        modifier = Modifier
+                            .padding(dimensionResource(R.dimen.possible_flight_card_column_padding))
+                    ) {
+                        Text(
+                            text = stringResource(R.string.depart),
+                            fontWeight = FontWeight.Light,
+                            fontSize = dimensionResource(R.dimen.depart_font_size).value.sp
+                        )
+
+                        Text(
+                            text = it.departureCode,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(dimensionResource(R.dimen.card_height_spacer)))
+
+                        Text(
+                            text = stringResource(R.string.arrive),
+                            fontWeight = FontWeight.Light,
+                            fontSize = dimensionResource(R.dimen.arrive_font_size).value.sp
+                        )
+
+                        Text(
+                            it.destinationCode,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
     }
@@ -159,7 +201,7 @@ fun SearchBar(
     value: String,
     onValueChange: (String) -> Unit,
     onClearClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     OutlinedTextField(
         value = value,
@@ -202,7 +244,6 @@ fun SearchBar(
 fun AutocompleteSuggestions(
     airportList: List<IataAndName>,
     onItemSelected: (IataAndName) -> Unit,
-    updateSelectedAirport: (IataAndName) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -217,7 +258,6 @@ fun AutocompleteSuggestions(
                     .padding(vertical = dimensionResource(R.dimen.lazy_column_row_vertical_padding))
                     .clickable {
                         onItemSelected(it)
-                        updateSelectedAirport(it)
                     }
             ) {
                 Text(
@@ -239,19 +279,17 @@ fun AutocompleteSuggestions(
 fun PossibleFlights(
     selectedAirport: IataAndName,
     destinationAirports: List<IataAndName>,
-    isFlightSaved: (String) -> Boolean,
-    saveFlight: (String) -> Unit,
-    deleteFlight: (String) -> Unit,
     saveFavorite: (Favorite) -> Unit,
     deleteFavorite: (Favorite) -> Unit,
+    isFlightSaved: (Favorite) -> Boolean,
     modifier: Modifier = Modifier
 ) {
-    Column {
+    Column(modifier = modifier) {
         if (destinationAirports.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.flights_from, selectedAirport.iataCode),
                 fontWeight = FontWeight.Bold,
-                modifier = modifier.padding(bottom = dimensionResource(R.dimen.possible_flight_text_bottom_padding))
+                modifier = Modifier.padding(bottom = dimensionResource(R.dimen.possible_flight_text_bottom_padding))
             )
         }
         LazyColumn {
@@ -262,9 +300,7 @@ fun PossibleFlights(
                 PossibleFlightCard(
                     selectedAirport = selectedAirport,
                     destinationAirport = destinationAirport,
-                    saveFlight = saveFlight,
                     isFlightSaved = isFlightSaved,
-                    deleteFlight = deleteFlight,
                     saveFavorite = saveFavorite,
                     deleteFavorite = deleteFavorite,
                     modifier = Modifier.padding(vertical = dimensionResource(R.dimen.possible_flight_card_vertical_padding))
@@ -278,11 +314,9 @@ fun PossibleFlights(
 fun PossibleFlightCard(
     selectedAirport: IataAndName,
     destinationAirport: IataAndName,
-    saveFlight: (String) -> Unit,
-    deleteFlight: (String) -> Unit,
-    isFlightSaved: (String) -> Boolean,
     saveFavorite: (Favorite) -> Unit,
     deleteFavorite: (Favorite) -> Unit,
+    isFlightSaved: (Favorite) -> Boolean,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -340,35 +374,39 @@ fun PossibleFlightCard(
                 }
             }
 
-            Image(
+            Icon(
                 painter = painterResource(R.drawable.baseline_star_24),
                 contentDescription = null,
                 modifier = Modifier
                     .size(dimensionResource(R.dimen.star_icon_size))
                     .padding(end = dimensionResource(R.dimen.star_icon_end_padding))
-                    .clickable {
-                        if (!isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode)) {
-                            saveFlight(destinationAirport.iataCode + selectedAirport.iataCode)
+                    .clickable
+                    {
+                        if (!isFlightSaved(
+                                Favorite(
+                                    departureCode = selectedAirport.iataCode,
+                                    destinationCode = destinationAirport.iataCode
+                                )
+                            )
+                        )
                             saveFavorite(
                                 Favorite(
                                     departureCode = selectedAirport.iataCode,
                                     destinationCode = destinationAirport.iataCode
                                 )
                             )
-                        } else {
-                            deleteFlight(destinationAirport.iataCode + selectedAirport.iataCode)
+                        else
                             deleteFavorite(
                                 Favorite(
                                     departureCode = selectedAirport.iataCode,
                                     destinationCode = destinationAirport.iataCode
                                 )
                             )
-                        }
                     },
-                colorFilter = if (isFlightSaved(destinationAirport.iataCode + selectedAirport.iataCode))
-                    ColorFilter.tint(MaterialTheme.colorScheme.primary)
+                tint = if (isFlightSaved(Favorite(departureCode = selectedAirport.iataCode, destinationCode = destinationAirport.iataCode)))
+                    MaterialTheme.colorScheme.primary
                 else
-                    ColorFilter.tint(MaterialTheme.colorScheme.outlineVariant)
+                    MaterialTheme.colorScheme.outlineVariant
             )
         }
     }
