@@ -8,6 +8,7 @@ FlightSearch is an easy-to-use application that grants users access to flight in
 ### Data Storage
 FlightSearch utilizes two key data storage mechanisms to ensure a smooth user experience:
 
+#### Room Database
 **Room Database:** I used Room, an Android architecture component, to efficiently manage the storage of flight information. This database is the backbone of the app, facilitating the retrieval and storage of flight data.
 
 **DataStore:** I implemented DataStore to handle local storage, providing a reliable solution for saving and retrieving user preferences and app settings. 
