@@ -95,9 +95,7 @@ fun FlightSearchApp(
                             }
                         }
                     },
-
-                    modifier = Modifier
-                        .animateEnterExit(
+                    modifier = Modifier.animateEnterExit(
                             enter = expandVertically(),
                             exit = shrinkVertically()
                         )
