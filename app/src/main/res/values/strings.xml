@@ -5,4 +5,9 @@
     <string name="arrive">ARRIVE</string>
     <string name="flights_from">Flights from %1$s</string>
     <string name="favorite_routes">Favorite routes</string>
+    <string name="clear_all">Clear all</string>
+    <string name="attention">Attention</string>
+    <string name="confirmation_question">Are you sure you want to delete all saved items?</string>
+    <string name="no">No</string>
+    <string name="yes">Yes</string>
 </resources>

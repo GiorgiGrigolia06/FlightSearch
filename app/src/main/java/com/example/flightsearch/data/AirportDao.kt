@@ -20,6 +20,9 @@ interface AirportDao {
     @Query("DELETE FROM favorite WHERE departure_code = :departureCode AND destination_code = :destinationCode")
     suspend fun deleteFavorite(departureCode: String, destinationCode: String)
 
+    @Query("DELETE FROM favorite")
+    suspend fun deleteAllFavorites()
+
     @Query("SELECT * from favorite")
     fun retrieveAllFavorites(): Flow<List<Favorite>>
 }

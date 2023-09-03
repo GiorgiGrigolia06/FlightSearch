@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -95,11 +97,15 @@ fun FlightSearchApp(
                             }
                         }
                     },
-                    modifier = Modifier.animateEnterExit(
-                            enter = expandVertically(),
-                            exit = shrinkVertically()
-                        )
-                        .padding(bottom = dimensionResource(R.dimen.autocomplete_suggestions_bottom_padding))
+                    modifier = if (airportList.isNotEmpty())
+                        Modifier
+                            .animateEnterExit(
+                                enter = expandVertically(),
+                                exit = shrinkVertically()
+                            )
+                            .padding(bottom = dimensionResource(R.dimen.autocomplete_suggestions_bottom_padding))
+                     else
+                         Modifier
                 )
             }
 
@@ -125,7 +131,25 @@ fun FlightSearchApp(
                 )
             }
 
-            SavedFlights(items = favoriteFlights)
+            SavedFlights(
+                items = favoriteFlights,
+                deleteItem = { viewModel.deleteItem(it) },
+                onClearAllClick = { viewModel.toggleDeleteDialogVisibility() }
+            )
+
+            if (uiState.isDeleteDialogVisible) {
+                DeleteConfirmationDialog(
+                    onDeleteConfirm = {
+                        viewModel.toggleDeleteDialogVisibility()
+                        coroutineScope.launch {
+                            viewModel.deleteAllFavorites()
+                        }
+                    },
+                    onDeleteCancel = {
+                        viewModel.toggleDeleteDialogVisibility()
+                    }
+                )
+            }
         }
     }
 }
@@ -133,18 +157,31 @@ fun FlightSearchApp(
 @Composable
 fun SavedFlights(
     items: List<Favorite>,
+    deleteItem: (Favorite) -> Unit,
+    onClearAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
     ){
         if (items.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.favorite_routes),
-                fontWeight = FontWeight.Bold,
+            Row(
                 modifier = Modifier
                     .padding(bottom = dimensionResource(R.dimen.possible_flight_text_bottom_padding))
-            )
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ){
+                Text(
+                    text = stringResource(R.string.favorite_routes),
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Text(
+                    text = stringResource(R.string.clear_all),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onClearAllClick() }
+                )
+            }
         }
         LazyColumn {
             items(
@@ -158,32 +195,56 @@ fun SavedFlights(
                     elevation = CardDefaults.cardElevation(defaultElevation = dimensionResource(R.dimen.card_default_elevation)),
                     colors = CardDefaults.cardColors(MaterialTheme.colorScheme.background),
                 ){
-                    Column(
-                        modifier = Modifier
-                            .padding(dimensionResource(R.dimen.possible_flight_card_column_padding))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = stringResource(R.string.depart),
-                            fontWeight = FontWeight.Light,
-                            fontSize = dimensionResource(R.dimen.depart_font_size).value.sp
-                        )
+                        Column(
+                            modifier = Modifier
+                                .padding(dimensionResource(R.dimen.possible_flight_card_column_padding))
+                                .weight(1f)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.depart),
+                                fontWeight = FontWeight.Light,
+                                fontSize = dimensionResource(R.dimen.depart_font_size).value.sp
+                            )
 
-                        Text(
-                            text = it.departureCode,
-                            fontWeight = FontWeight.Bold
-                        )
+                            Text(
+                                text = it.departureCode,
+                                fontWeight = FontWeight.Bold
+                            )
 
-                        Spacer(modifier = Modifier.height(dimensionResource(R.dimen.card_height_spacer)))
+                            Spacer(modifier = Modifier.height(dimensionResource(R.dimen.card_height_spacer)))
 
-                        Text(
-                            text = stringResource(R.string.arrive),
-                            fontWeight = FontWeight.Light,
-                            fontSize = dimensionResource(R.dimen.arrive_font_size).value.sp
-                        )
+                            Text(
+                                text = stringResource(R.string.arrive),
+                                fontWeight = FontWeight.Light,
+                                fontSize = dimensionResource(R.dimen.arrive_font_size).value.sp
+                            )
 
-                        Text(
-                            it.destinationCode,
-                            fontWeight = FontWeight.Bold
+                            Text(
+                                it.destinationCode,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Icon(
+                            painter = painterResource(R.drawable.baseline_star_24),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(dimensionResource(R.dimen.star_icon_size))
+                                .padding(end = dimensionResource(R.dimen.star_icon_end_padding))
+                                .clickable {
+                                    deleteItem(
+                                        Favorite(
+                                            departureCode = it.departureCode,
+                                            destinationCode = it.destinationCode
+                                        )
+                                    )
+                                }
                         )
                     }
                 }
@@ -408,4 +469,31 @@ fun PossibleFlightCard(
             )
         }
     }
+}
+
+@Composable
+private fun DeleteConfirmationDialog(
+    onDeleteConfirm: () -> Unit,
+    onDeleteCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AlertDialog(
+        onDismissRequest = { /** Do nothing */ },
+        title = { Text(text = stringResource(R.string.attention)) },
+        text = { Text(text = stringResource(R.string.confirmation_question)) },
+        dismissButton = {
+            TextButton(onClick = onDeleteCancel) {
+                Text(text = stringResource(R.string.no))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDeleteConfirm) {
+                Text(
+                    text = stringResource(R.string.yes),
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        },
+        modifier = modifier
+    )
 }

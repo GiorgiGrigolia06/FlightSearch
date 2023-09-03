@@ -21,6 +21,7 @@ data class FlightSearchUIState(
     val selectedAirport: IataAndName = IataAndName(iataCode = "", name =  ""),
     val isAirportSelected: Boolean = false,
     val flightSavedStates: MutableMap<Favorite, Boolean> = mutableMapOf(),
+    val isDeleteDialogVisible: Boolean = false
 )
 
 @OptIn(FlowPreview::class)
@@ -118,6 +119,23 @@ class FlightSearchViewModel(
     // Returns a list of favorite (saved) items from the database
     fun getAllFavorites(): Flow<List<Favorite>> =
         flightSearchRepository.getAllFavorites()
+
+    // Deletes every saved flight
+    suspend fun deleteAllFavorites() {
+        _uiState.value.flightSavedStates.forEach { (favorite) ->
+            _uiState.value.flightSavedStates[favorite] = false
+        }
+        flightSearchRepository.deleteAllFavorites()
+    }
+
+    // Makes delete dialog visible or invisible
+    fun toggleDeleteDialogVisibility() {
+        _uiState.update {
+            it.copy(
+                isDeleteDialogVisible = !it.isDeleteDialogVisible
+            )
+        }
+    }
 
     // Clears user input from the search bar and saves it to the preference repository
     fun onClearClick() {
