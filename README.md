@@ -2,8 +2,8 @@
 FlightSearch is an easy-to-use application that grants users access to flight information. This app enables users to find suitable flight options by inputting their preferences, offering them flight recommendations sourced from a database. Users can delve deeper into their choices by exploring available flights when selecting a specific airport. Moreover, FlightSearch ensures the security of user-selected flights, storing them for effortless retrieval.
 
 ## Features
-**Explore Available Flights:** Upon selecting a specific airport, you can easily access a list of available flights.
-**Secure Storage:** Store your favorite flights securely in the database for future reference and retrieval.
+- **Explore Available Flights** - Upon selecting a specific airport, you can easily access a list of available flights.
+- **Secure Storage** - Store your favorite flights securely in the database for future reference and retrieval.
 
 ## Data Storage
 FlightSearch utilizes two key data storage mechanisms to ensure a smooth user experience:
