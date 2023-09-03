@@ -14,4 +14,4 @@ FlightSearch utilizes two key data storage mechanisms to ensure a smooth user ex
 - **DataStore** - I implemented DataStore to handle local storage, providing a reliable solution for saving and retrieving user preferences, including their input in the search bar.
 
 ## Syncing Saved and Deleted Items
-One of the main challenges in developing FlightSearch was ensuring the synchronization of saved and deleted items across the app. I tackled this challenge by implementing robust functions in the ViewModel, allowing for a seamless experience when managing your selected flights.
+One of the main challenges in developing FlightSearch was ensuring the synchronization of saved and deleted items across the app. I tackled this challenge by implementing robust functions in the ViewModel, allowing for a seamless experience when managing selected flights.
