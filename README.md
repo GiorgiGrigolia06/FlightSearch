@@ -20,6 +20,6 @@ One of the main challenges in developing FlightSearch was ensuring the synchroni
 <div style="display: flex;">
     <img src="1.png" alt="Main Page" width="220" height="460">
     <img src="2.png" alt="Search Page" width="220" height="460">
-    <img src="3.png" alt="Results Page" width="220" height="460">
+    <img src="3 1.png" alt="Results Page" width="220" height="460">
     <img src="4.png" alt="Main Page After Saving Items" width="220" height="460">
 </div>
