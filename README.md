@@ -18,8 +18,8 @@ One of the main challenges in developing FlightSearch was ensuring the synchroni
 
 ## Screenshots
 <p align="left">
-    <img src="1.png" alt="Main Page" width="220" height="460">&nbsp;
-    <img src="2.png" alt="Search Page" width="220" height="460">&nbsp;
-    <img src="3 1.png" alt="Results Page" width="220" height="460">&nbsp;
+    <img src="1.png" alt="Main Page" width="220" height="460">&nbsp;&nbsp;
+    <img src="2.png" alt="Search Page" width="220" height="460">&nbsp;&nbsp;
+    <img src="3 1.png" alt="Results Page" width="220" height="460">&nbsp;&nbsp;
     <img src="4.png" alt="Main Page After Saving Items" width="220" height="460">
 </p>
