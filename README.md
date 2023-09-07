@@ -18,4 +18,10 @@ One of the main challenges in developing FlightSearch was ensuring the synchroni
 
 ## App Images
 <img src="1.png" alt="Main Page" width="220" height="460">
+<img src="2.png" alt="Search Page" width="220" height="460">
+<img src="3.png" alt="Results Page" width="220" height="460">
+<img src="4.png" alt="Main Page After Saving Items" width="220" height="460">
+
+
+
 <!-- 720 x 1520 pixels, 19:9 ratio (~271 ppi density) -->
