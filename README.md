@@ -16,7 +16,7 @@ FlightSearch utilizes two key data storage mechanisms to ensure a smooth user ex
 ## Syncing Saved and Deleted Items
 One of the main challenges in developing FlightSearch was ensuring the synchronization of saved and deleted items across the app. I tackled this challenge by implementing robust functions in the ViewModel, allowing for a seamless experience when managing selected flights.
 
-## Screenshots
+## Preview
 <p align="left">
     <img src="1.png" alt="Main Page" width="220" height="460">&nbsp;&nbsp;
     <img src="2.png" alt="Search Page" width="220" height="460">&nbsp;&nbsp;
